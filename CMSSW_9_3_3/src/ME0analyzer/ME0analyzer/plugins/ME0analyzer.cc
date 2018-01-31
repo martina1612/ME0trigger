@@ -25,6 +25,8 @@
 #include <stdio.h>
 #include <vector>
 #include <map>
+#include <bitset>
+#include <algorithm>
 
 // user include files
 #include "FWCore/Framework/interface/Frameworkfwd.h"
@@ -53,6 +55,7 @@
 #include "DataFormats/GEMDigi/interface/ME0PadDigiClusterCollection.h"
 
 #include <TTree.h>
+#include <TH1F.h>
 //
 // class declaration
 //
@@ -110,13 +113,47 @@ class ME0analyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       float erreff_5L_pos  =  0;   float erreff_5L_neg  =  0;	float erreff_5L_posneg  =  0;
       float erreff_6L_pos  =  0;   float erreff_6L_neg  =  0;	float erreff_6L_posneg  =  0;
 
-      float nL_neg, nL_pos;
+      float bx_pos, bx_neg;
+      float nL_pos, nL_neg;
 
-      bool v = 1 ; //verbose
+      short int		patternL_pos		= 0;
+      short int		patternL_neg		= 0;
+      short int		patternD_pos		= 0;
+      short int		patternD_neg		= 0;
+      float		patternLtree_pos	= 0;
+      float		patternLtree_neg	= 0;
+      float		patternDtree_pos	= 0;
+      float		patternDtree_neg	= 0;
 
+      bool v = 1 ; //verbose initialization
 
+      //histograms GenParticles
+      TH1F * h_p_pos 	;
+      TH1F * h_p_neg 	;
+      TH1F * h_pt_pos 	;
+      TH1F * h_pt_neg 	;
+      TH1F * h_px_pos 	;
+      TH1F * h_px_neg 	;
+      TH1F * h_py_pos 	;
+      TH1F * h_py_neg 	;
+      TH1F * h_pz_pos 	;
+      TH1F * h_pz_neg 	;
+      TH1F * h_eta_pos 	;
+      TH1F * h_eta_neg 	;
+      TH1F * h_vx_pos 	;
+      TH1F * h_vx_neg 	;
+      TH1F * h_vy_pos 	;
+      TH1F * h_vy_neg 	;
+      TH1F * h_vz_pos 	;
+      TH1F * h_vz_neg 	;
+      TH1F * h_id_pos 	;
+      TH1F * h_id_neg 	;
 
-
+      //histograms ME0
+      TH1F * h_nStr_pos;
+      TH1F * h_nStr_neg;
+      TH1F * h_holeSize_pos;
+      TH1F * h_holeSize_neg;
 
       // ----------member data ---------------------------
       TTree *tr;
@@ -149,7 +186,9 @@ ME0analyzer::ME0analyzer(const edm::ParameterSet& iConfig):
 
    Service<TFileService> fs;
 //   h_n3mu = fs->make<TH1F>("n3mu", "", 10, 0, 10);
+   
    tr2 = fs->make<TTree>("Run", "");
+
    //efficiencies
    tr2->Branch("eff_any_pos",	&eff_any_pos,	"eff_any_pos");	tr2->Branch("eff_any_neg",	&eff_any_neg,	"eff_any_neg");
    tr2->Branch("eff_1L_pos",	&eff_1L_pos,	"eff_1L_pos");	tr2->Branch("eff_1L_neg",	&eff_1L_neg,	"eff_1L_neg");
@@ -183,9 +222,50 @@ ME0analyzer::ME0analyzer(const edm::ParameterSet& iConfig):
    tr2->Branch("meas_5L_neg",	&meas_5L_neg,	"meas_5L_neg");
    tr2->Branch("meas_6L_neg",	&meas_6L_neg,	"meas_6L_neg");
 
+
+
    tr = fs->make<TTree>("Event", "");
-   tr->Branch("nL_neg"     ,	&nL_neg     , 	"nL_neg"     );
+   tr->Branch("bx_pos"     ,	&bx_pos     , 	"bx_pos"     );
+   tr->Branch("bx_neg"     ,	&bx_neg     , 	"bx_neg"     );
    tr->Branch("nL_pos"     ,	&nL_pos     , 	"nL_pos"     );
+   tr->Branch("nL_neg"     ,	&nL_neg     , 	"nL_neg"     );
+   tr->Branch("patternLtree_pos" ,	&patternLtree_pos , "patternL_pos" );
+   tr->Branch("patternLtree_neg" ,	&patternLtree_neg , "patternL_neg" );
+   tr->Branch("patternDtree_pos" ,	&patternDtree_pos , "patternD_pos" );
+   tr->Branch("patternDtree_neg" ,	&patternDtree_neg , "patternD_neg" );
+  
+
+   //histograms GenParticles
+   h_p_pos 	= fs->make<TH1F>("h_p_pos","h_p_pos", 10000, 0, 1000);
+   h_p_neg 	= fs->make<TH1F>("h_p_neg","h_p_neg", 10000, 0, 1000);
+   h_pt_pos 	= fs->make<TH1F>("h_pt_pos","h_pt_pos", 10000, 0, 1000);
+   h_pt_neg 	= fs->make<TH1F>("h_pt_neg","h_pt_neg", 10000, 0, 1000);
+   h_px_pos 	= fs->make<TH1F>("h_px_pos","h_px_pos", 10000, 0, 1000);
+   h_px_neg 	= fs->make<TH1F>("h_px_neg","h_px_neg", 10000, 0, 1000);
+   h_py_pos 	= fs->make<TH1F>("h_py_pos","h_py_pos", 10000, 0, 1000);
+   h_py_neg 	= fs->make<TH1F>("h_py_neg","h_py_neg", 10000, 0, 1000);
+   h_pz_pos 	= fs->make<TH1F>("h_pz_pos","h_pz_pos", 10000, 0, 1000);
+   h_pz_neg 	= fs->make<TH1F>("h_pz_neg","h_pz_neg", 10000, 0, 1000);
+   h_eta_pos 	= fs->make<TH1F>("h_eta_pos","h_eta_pos", 500, -5, +5);
+   h_eta_neg 	= fs->make<TH1F>("h_eta_neg","h_eta_neg", 500, -5, +5);
+   h_vx_pos 	= fs->make<TH1F>("h_vx_pos","h_vx_pos", 10000, -500, 500);
+   h_vx_neg 	= fs->make<TH1F>("h_vx_neg","h_vx_neg", 10000, -500, 500);
+   h_vy_pos 	= fs->make<TH1F>("h_vy_pos","h_vy_pos", 10000, -500, 500);
+   h_vy_neg 	= fs->make<TH1F>("h_vy_neg","h_vy_neg", 10000, -500, 500);
+   h_vz_pos 	= fs->make<TH1F>("h_vz_pos","h_vz_pos", 10000, -800, 800);
+   h_vz_neg 	= fs->make<TH1F>("h_vz_neg","h_vz_neg", 10000, -800, 800);
+   h_id_pos 	= fs->make<TH1F>("h_id_pos","h_id_pos", 2001, -1000, 1000);
+   h_id_neg 	= fs->make<TH1F>("h_id_neg","h_id_neg", 2001, -1000, 1000);
+
+   //histograms ME0
+   h_nStr_pos 	= fs->make<TH1F>("h_nStr_pos","h_nStr_pos", 301, 0, 300);
+   h_nStr_neg 	= fs->make<TH1F>("h_nStr_neg","h_nStr_neg", 301, 0, 300);
+   h_holeSize_pos = fs->make<TH1F>("h_holeSize_pos","h_holeSize_pos", 301, 0, 300);
+   h_holeSize_neg = fs->make<TH1F>("h_holeSize_neg","h_holeSize_neg", 301, 0, 300);
+   //patterns
+   //map<short int,int> firedLayers_pos;
+   //map<short int,int> firedLayers_neg;
+
 }
 
 ME0analyzer::~ME0analyzer()
@@ -215,17 +295,34 @@ ME0analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    iEvent.getByToken(ME0PadDigiToken_, me0padDigiH);
    iEvent.getByToken(ME0PadDigiClusterToken_, me0padDigiClusterH);
 
-   vector<ME0DetId> 	me0detid_v1;
-   vector<ME0DetId> 	me0detid_v2;
-   vector<ME0DetId> 	me0detid_v3;
-   vector<ME0DetId> 	me0detid_pos; 
-   vector<ME0DetId> 	me0detid_neg;
-   vector<unsigned int> posGenPart;
-   vector<unsigned int> negGenPart;
-   vector<int>		layers_pos;
-   vector<int>		layers_neg;
+   vector<ME0DetId> 	me0detid_v1;		me0detid_v1.clear();
+   vector<ME0DetId> 	me0detid_v2;            me0detid_v2.clear();
+   vector<ME0DetId> 	me0detid_v3;            me0detid_v3.clear();
+   vector<ME0DetId> 	me0detid_pos;           me0detid_pos.clear();
+   vector<ME0DetId> 	me0detid_neg;           me0detid_neg.clear();
+   vector<unsigned int> posGenPart;             posGenPart.clear();
+   vector<unsigned int> negGenPart;             negGenPart.clear();
+   vector<int>		layers_pos;             layers_pos.clear();
+   vector<int>		layers_neg;             layers_neg.clear();
 
+   map<ME0DetId,vector<int>> 			strips;		strips.clear();
+   map<ME0DetId,vector<int>> 			pads;		pads.clear();
+   map<ME0DetId,vector<vector<uint16_t>>> 	clusters;	clusters.clear();
 
+   nL_pos	= 0;
+   nL_neg	= 0;
+   patternL_pos	= 0;
+   patternL_neg	= 0;
+   patternD_pos	= 0;
+   patternD_neg	= 0;
+   patternLtree_pos	= 0;
+   patternLtree_neg	= 0;
+   patternDtree_pos	= 0;
+   patternDtree_neg	= 0;
+   bx_pos		= 99;
+   bx_neg		= 99;
+   int nStr_pos	= 99;
+   int nStr_neg	= 99;
 
 //------------------ GEN PARTICLES ------------------------------
      Handle<GenParticleCollection> genParticles;
@@ -249,9 +346,36 @@ ME0analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       // <<"\tMOTHER pt:"<<mom->pt()<<endl<<endl;
 
       if ( fabs(p.eta()) < 2.0 || fabs(p.eta()) > 2.8 ) return;
+      if ( fabs(p.pt()) < 0.5 ) return;
 
-      if ( p.pz()>0 ) { posGenPart.push_back(i); totmu_pos++; }
-      else            { negGenPart.push_back(i); totmu_neg++; }
+      if ( p.pz()>0 ) {
+      		      posGenPart.push_back(i); totmu_pos++;
+		      
+		      h_p_pos 	->Fill(p.p());
+                      h_pt_pos 	->Fill(p.pt());
+                      h_px_pos 	->Fill(p.px());
+                      h_py_pos 	->Fill(p.py());
+                      h_pz_pos 	->Fill(p.pz());
+                      h_eta_pos	->Fill(p.eta());
+                      h_vx_pos 	->Fill(p.vx());
+                      h_vy_pos 	->Fill(p.vy());
+                      h_vz_pos 	->Fill(p.vz());
+                      h_id_pos 	->Fill(p.pdgId());
+		      }
+      else            { 
+      		      negGenPart.push_back(i); totmu_neg++; 
+		      
+		      h_p_neg 	->Fill(p.p());
+                      h_pt_neg 	->Fill(p.pt());
+                      h_px_neg 	->Fill(p.px());
+                      h_py_neg 	->Fill(p.py());
+                      h_pz_neg 	->Fill(p.pz());
+                      h_eta_neg	->Fill(p.eta());
+                      h_vx_neg 	->Fill(p.vx());
+                      h_vy_neg 	->Fill(p.vy());
+                      h_vz_neg 	->Fill(p.vz());
+                      h_id_neg 	->Fill(p.pdgId());
+		      }
      }
 
 
@@ -259,25 +383,146 @@ ME0analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    for ( DigiContainerIterator<ME0DetId,ME0Digi> it = me0digiH->begin(); it != me0digiH->end(); ++it )
    {
     ME0DetId me0id = (*it).first;
-    cout << me0id << endl;
+    //cout << me0id << endl;
     MuonDigiCollection<ME0DetId,ME0Digi>::const_iterator itr;
+    int bx = 99;
     for ( itr =((*it).second).first; itr!= ((*it).second).second; itr++ )
      {
       int strip = (*itr).strip();
-      int bx    = (*itr).bx();
-      cout << "strip: " << strip << "  bx: " << bx << endl;
+      bx  = (*itr).bx();
+      strips[me0id].push_back(strip);
+      if (v)	cout << "strip: " << strip << "  bx: " << bx << endl;
      }
     
     me0detid_v1.push_back(me0id);
     cout << "region " << me0id.region() << "layer " << me0id.layer() << endl;
-    if ( me0id.region() > 0 )  	{ me0detid_pos.push_back( me0id ) ;
-    			  	  layers_pos.push_back( me0id.layer() ) ;
+    if ( me0id.region() > 0 )  	{ 
+      				  bx_pos = bx;
+				  int layer = me0id.layer();
+    				  if ( ! (std::find(me0detid_pos.begin(), me0detid_pos.end(),me0id)!=me0detid_pos.end()) )
+    				      me0detid_pos.push_back( me0id ) ;
+				  if ( ! (std::find(layers_pos.begin(), layers_pos.end(),layer)!=layers_pos.end()) )
+    			  	     { layers_pos.push_back( layer ) ;
+				       if (v) cout << "new layers_pos added : " << layer << endl;
+				     }
+	 			  if (layer==1) patternL_pos = 1  | patternL_pos;
+	 			  if (layer==2) patternL_pos = 2  | patternL_pos;
+	 			  if (layer==3) patternL_pos = 4  | patternL_pos;
+	 			  if (layer==4) patternL_pos = 8  | patternL_pos;
+	 			  if (layer==5) patternL_pos = 16 | patternL_pos;
+	 			  if (layer==6) patternL_pos = 32 | patternL_pos;
 			       	}
-    else			{ me0detid_neg.push_back( me0id ) ;
-    				  layers_neg.push_back( me0id.layer() ) ;
+    else			{ 
+      				  bx_neg = bx;
+				  int layer = me0id.layer();
+    				  if ( ! (std::find(me0detid_neg.begin(), me0detid_neg.end(),me0id)!=me0detid_neg.end()) )
+    				      me0detid_neg.push_back( me0id ) ;
+				  if ( ! (std::find(layers_neg.begin(), layers_neg.end(),layer)!=layers_neg.end()) )
+    			  	     { layers_neg.push_back( layer ) ;
+				       if (v) cout << "new layers_neg added : " << layer << endl;
+				     }
+    
+    				  //me0detid_neg.push_back( me0id ) ;
+    				  //layers_neg.push_back( me0id.layer() ) ;
+				  //int layer = me0id.layer();
+				  //if (v) cout << "new layers_neg added : " << layer << endl;
+	 			  if (layer==1) patternL_neg = 1  | patternL_neg;
+	 			  if (layer==2) patternL_neg = 2  | patternL_neg;
+	 			  if (layer==3) patternL_neg = 4  | patternL_neg;
+	 			  if (layer==4) patternL_neg = 8  | patternL_neg;
+	 			  if (layer==5) patternL_neg = 16 | patternL_neg;
+	 			  if (layer==6) patternL_neg = 32 | patternL_neg;
+
 			       	}
+
    }
 
+   patternLtree_pos = patternL_pos;	patternLtree_neg = patternL_neg;
+   //make sure that strips and pads vectors in maps are sorted ascending
+   for (auto itmap = strips.begin() ; itmap != strips.end() ; ++itmap)	
+      std::sort( (itmap->second).begin() , (itmap->second).end() );
+   for (auto itmap = pads.begin() ; itmap != pads.end() ; ++itmap)	
+      std::sort( (itmap->second).begin() , (itmap->second).end() );
+   //(above lines probably not necessary)
+
+   if (v) { std::bitset<6> x(patternL_pos);
+      		std::cout << "patternL_pos : " << x ;
+		std::cout << "\t = " << patternL_pos;
+          }
+   if (v) { std::bitset<6> x(patternL_neg);
+       		std::cout << "patternL_neg : " << x ;
+		std::cout << "\t = " << patternL_neg;
+          }
+   if (v) {
+	  cout << "\n\nPositive ME0DetId:" << endl;
+	  for (unsigned int i=0; i<me0detid_pos.size(); i++)	
+	     {
+	     cout << me0detid_pos[i] << endl;
+	     cout << "strips: " ;
+	     for (auto it=strips[me0detid_pos[i]].begin(); it!=strips[me0detid_pos[i]].end(); ++it)	cout << " " << *it << " " ;
+	     cout << endl;
+	     cout << "pads: " ;
+	     for (auto it=pads[me0detid_pos[i]].begin(); it!=pads[me0detid_pos[i]].end(); ++it)	cout << " " << *it << " " ;
+	     cout << endl;
+	     }
+	  cout << "\n\nNegative ME0DetId:" << endl;
+	  //for (unsigned int i=0; i<me0detid_neg.size(); i++)	cout << me0detid_neg[i] << endl;
+	  for (unsigned int i=0; i<me0detid_neg.size(); i++)	
+	     {
+	     cout << me0detid_neg[i] << endl;
+	     cout << "strips: " ;
+	     for (auto it=strips[me0detid_neg[i]].begin(); it!=strips[me0detid_neg[i]].end(); ++it)	cout << " " << *it << " " ;
+	     cout << endl;
+	     cout << "pads: " ;
+	     for (auto it=pads[me0detid_neg[i]].begin(); it!=pads[me0detid_neg[i]].end(); ++it)	cout << " " << *it << " " ;
+	     cout << endl;
+	     }
+          }
+
+
+//-------------------- Fill nStrips, holeSize histograms -----------------------------------
+   if (v)	cout << "\n\nPositive ME0DetId:" << endl;
+   for (unsigned int i=0; i<me0detid_pos.size(); i++)	
+      {
+      nStr_pos = strips[me0detid_pos[i]].size();
+      h_nStr_pos->Fill(nStr_pos);
+      if (v) { 
+      	     cout << me0detid_pos[i] << endl;
+             cout << "holesize: " ;
+	     }
+      for (auto it=strips[me0detid_pos[i]].rbegin(); it!= (strips[me0detid_pos[i]].rend()-1); ++it)
+         {
+	 int hole = ((*it)-*(it+1)-1);
+	 if (v)		cout << " ********************" << hole << " " ;
+	 h_holeSize_pos->Fill(hole);
+         }
+      cout << endl; 
+      }
+
+   if (v)	cout << "\n\nNegative ME0DetId:" << endl;
+   for (unsigned int i=0; i<me0detid_neg.size(); i++)	
+      {
+      nStr_neg = strips[me0detid_neg[i]].size();
+      h_nStr_neg->Fill(nStr_neg);
+      if (v) { 
+      	     cout << me0detid_neg[i] << endl;
+             cout << "holesize: " ;
+	     }
+      for (auto it=strips[me0detid_neg[i]].rbegin(); it!= (strips[me0detid_neg[i]].rend()-1); ++it)
+         {
+	 int hole = ((*it)-*(it+1)-1);
+	 if (v)		cout << " ********************" << hole << " " ;
+	 h_holeSize_neg->Fill(hole);
+         }
+      cout << endl; 
+      }
+
+
+//-----------------------Fill LAYER PATTERNS map --------------------
+//if ( firedLayers_pos.count(patternL_pos) ) 	firedLayers_pos[patternL_pos]++;
+//else					  	firedLayers_pos[patternL_pos] = 1;
+//if ( firedLayers_neg.count(patternL_neg) ) 	firedLayers_neg[patternL_neg]++;
+//else					  	firedLayers_neg[patternL_neg] = 1;
 
 //-------------------- EFFICIENCY ------------------------------------
 unsigned int nL = layers_pos.size();
@@ -360,7 +605,6 @@ erreff_5L_posneg  = sqrt ( eff_5L_posneg*(1-eff_5L_posneg) /	( totmu_pos	+ totmu
 erreff_6L_posneg  = sqrt ( eff_6L_posneg*(1-eff_6L_posneg) /	( totmu_pos	+ totmu_neg ) ) ;		
 
 if (v) {
-
 cout << "eff_any_pos "	<< eff_any_pos	<< ",\teff_any_neg " <<	eff_any_neg <<	",\teff_any_posneg " <<	eff_any_posneg << endl ;
 cout << "eff_1L_pos  "	<< eff_1L_pos	<< ",\teff_1L_neg  " <<	eff_1L_neg  <<	",\teff_1L_posneg  " <<	eff_1L_posneg  << endl ;
 cout << "eff_2L_pos  "	<< eff_2L_pos	<< ",\teff_2L_neg  " <<	eff_2L_neg  <<	",\teff_2L_posneg  " <<	eff_2L_posneg  << endl ;
@@ -368,11 +612,6 @@ cout << "eff_3L_pos  "	<< eff_3L_pos	<< ",\teff_3L_neg  " <<	eff_3L_neg  <<	",\t
 cout << "eff_4L_pos  "	<< eff_4L_pos	<< ",\teff_4L_neg  " <<	eff_4L_neg  <<	",\teff_4L_posneg  " <<	eff_4L_posneg  << endl ;
 cout << "eff_5L_pos  "	<< eff_5L_pos	<< ",\teff_5L_neg  " <<	eff_5L_neg  <<	",\teff_5L_posneg  " <<	eff_5L_posneg  << endl ;
 cout << "eff_6L_pos  "	<< eff_6L_pos	<< ",\teff_6L_neg  " <<	eff_6L_neg  <<	",\teff_6L_posneg  " <<	eff_6L_posneg  << endl ;
-
-
-
-
-
 }
 
 //------------------- TEST ----------------------
@@ -384,13 +623,14 @@ cout << "eff_6L_pos  "	<< eff_6L_pos	<< ",\teff_6L_neg  " <<	eff_6L_neg  <<	",\t
    for ( DigiContainerIterator<ME0DetId,ME0PadDigi> it = me0padDigiH->begin(); it != me0padDigiH->end(); ++it )
    {
     ME0DetId me0id = (*it).first;
-    cout << me0id << endl;
+    if (v)	cout << me0id << endl;
     MuonDigiCollection<ME0DetId,ME0PadDigi>::const_iterator itr;
     for ( itr =((*it).second).first; itr!= ((*it).second).second; itr++ )
      {
       int pad = (*itr).pad();
       int bx    = (*itr).bx();
-      cout << "pad: " << pad << "  bx: " << bx << endl;
+      pads[me0id].push_back(pad);
+      if (v)	cout << "pad: " << pad << "  bx: " << bx << endl;
      }
     me0detid_v2.push_back(me0id);
    }
@@ -399,29 +639,32 @@ cout << "eff_6L_pos  "	<< eff_6L_pos	<< ",\teff_6L_neg  " <<	eff_6L_neg  <<	",\t
    for ( DigiContainerIterator<ME0DetId,ME0PadDigiCluster> it = me0padDigiClusterH->begin(); it != me0padDigiClusterH->end(); ++it )
    {
     ME0DetId me0id = (*it).first;
-    cout << me0id << endl;
+    if (v)	cout << me0id << endl;
     MuonDigiCollection<ME0DetId,ME0PadDigiCluster>::const_iterator itr;
     for ( itr =((*it).second).first; itr!= ((*it).second).second; itr++ )
      {
       vector<uint16_t> pads = (*itr).pads();
       //int bx    = (*itr).bx();
-      cout << "pads: " ;
+      clusters[me0id].push_back(pads);
+      if (v)	cout << "pads: " ;
       for ( unsigned int i=0; i<pads.size(); i++)  cout << pads[i] << " " ;
      }
     me0detid_v3.push_back(me0id);
    }
 
+    
+   tr->Fill();
+
+//-------------------- CHECKS ----------------------
+if ( nL_pos > 6 )	{ cout << "ERROR! More than 6 fired layers found on pos endcap." << endl; return; }
+if ( nL_neg > 6 )	{ cout << "ERROR! More than 6 fired layers found on neg endcap." << endl; return; }
 //Verify that the ME0DetId list is the same in the three cases above
 if( equal(me0detid_v1.begin(), me0detid_v1.end(), me0detid_v2.begin()) )
   if( equal(me0detid_v1.begin(), me0detid_v1.end(), me0detid_v3.begin()) )
     if ( me0detid_v1.size() == me0detid_v2.size() && me0detid_v1.size() == me0detid_v3.size() )
-      cout << "The three classes have the same list of ME0DetId" << endl;
-    
+      { cout << "The three classes have the same list of ME0DetId" << endl; return; }
 
-
-   tr->Fill();
 }
-
 
 // ------------ method called once each job just before starting event loop  ------------
 void 
