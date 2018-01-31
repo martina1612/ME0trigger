@@ -56,6 +56,7 @@
 
 #include <TTree.h>
 #include <TH1F.h>
+#include <TGraphErrors.h>
 //
 // class declaration
 //
@@ -87,6 +88,8 @@ class ME0analyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       edm::EDGetTokenT<MuonDigiCollection<ME0DetId,ME0PadDigiCluster>> ME0PadDigiClusterToken_;
       edm::EDGetTokenT<GenParticleCollection> genToken_;
 
+      bool v = 1 ; //verbose initialization
+
       //variables for efficiency calculation
       float totmu_pos = 0;	float totmu_neg = 0;	//nr. of GenParticle muons in positive/negative endcap
       float meas_any_pos = 0;  	float meas_any_neg = 0; //measured, any nr. of layers fired accepted
@@ -113,6 +116,9 @@ class ME0analyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       float erreff_5L_pos  =  0;   float erreff_5L_neg  =  0;	float erreff_5L_posneg  =  0;
       float erreff_6L_pos  =  0;   float erreff_6L_neg  =  0;	float erreff_6L_posneg  =  0;
 
+      Float_t 	eff_x_pos[6] = { 1,2,3,4,5,6 }; 	Float_t eff_y_pos[6]; 	Float_t erreff_x_pos[6] = {}; 	 Float_t erreff_y_pos[6];
+      Float_t 	eff_x_neg[6] = { 1,2,3,4,5,6 }; 	Float_t eff_y_neg[6]; 	Float_t erreff_x_neg[6] = {}; 	 Float_t erreff_y_neg[6];
+
       float bx_pos, bx_neg;
       float nL_pos, nL_neg;
 
@@ -124,8 +130,8 @@ class ME0analyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       float		patternLtree_neg	= 0;
       float		patternDtree_pos	= 0;
       float		patternDtree_neg	= 0;
-
-      bool v = 1 ; //verbose initialization
+      vector<float>	patternDtree_vec_pos;
+      vector<float>	patternDtree_vec_neg;
 
       //histograms GenParticles
       TH1F * h_p_pos 	;
@@ -150,10 +156,16 @@ class ME0analyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       TH1F * h_id_neg 	;
 
       //histograms ME0
-      TH1F * h_nStr_pos;
-      TH1F * h_nStr_neg;
-      TH1F * h_holeSize_pos;
-      TH1F * h_holeSize_neg;
+      TH1F * h_nStr_pos		;
+      TH1F * h_nStr_neg		;
+      TH1F * h_holeSize_pos	;
+      TH1F * h_holeSize_neg	;
+      TH1F * h_digiPattern_pos	;
+      TH1F * h_digiPattern_neg	;
+
+      //TGraph efficiency
+      TGraphErrors * g_effVsnL_pos;
+      TGraphErrors * g_effVsnL_neg;
 
       // ----------member data ---------------------------
       TTree *tr;
@@ -180,11 +192,10 @@ ME0analyzer::ME0analyzer(const edm::ParameterSet& iConfig):
 {
    //now do what ever initialization is needed
    usesResource("TFileService");
-   
+   Service<TFileService> fs;
 
    v = iConfig.getParameter<bool>("verbose");
 
-   Service<TFileService> fs;
 //   h_n3mu = fs->make<TH1F>("n3mu", "", 10, 0, 10);
    
    tr2 = fs->make<TTree>("Run", "");
@@ -231,8 +242,8 @@ ME0analyzer::ME0analyzer(const edm::ParameterSet& iConfig):
    tr->Branch("nL_neg"     ,	&nL_neg     , 	"nL_neg"     );
    tr->Branch("patternLtree_pos" ,	&patternLtree_pos , "patternL_pos" );
    tr->Branch("patternLtree_neg" ,	&patternLtree_neg , "patternL_neg" );
-   tr->Branch("patternDtree_pos" ,	&patternDtree_pos , "patternD_pos" );
-   tr->Branch("patternDtree_neg" ,	&patternDtree_neg , "patternD_neg" );
+//   tr->Branch("patternDtree_vec_pos" ,	&patternDtree_vec_pos , "patternD_vec_pos" );
+//   tr->Branch("patternDtree_vec_neg" ,	&patternDtree_vec_neg , "patternD_vec_neg" );
   
 
    //histograms GenParticles
@@ -262,6 +273,13 @@ ME0analyzer::ME0analyzer(const edm::ParameterSet& iConfig):
    h_nStr_neg 	= fs->make<TH1F>("h_nStr_neg","h_nStr_neg", 301, 0, 300);
    h_holeSize_pos = fs->make<TH1F>("h_holeSize_pos","h_holeSize_pos", 301, 0, 300);
    h_holeSize_neg = fs->make<TH1F>("h_holeSize_neg","h_holeSize_neg", 301, 0, 300);
+   h_digiPattern_pos = fs->make<TH1F>("h_digiPattern_pos","h_digiPattern_pos", 301, 0, 300);
+   h_digiPattern_neg = fs->make<TH1F>("h_digiPattern_neg","h_digiPattern_neg", 301, 0, 300);
+   
+   //TGraph efficiency
+   //g_effVsnL_pos = fs->make<TGraphErrors>(6,eff_x_pos, eff_y_pos, erreff_x_pos, erreff_y_pos);
+   //g_effVsnL_neg = fs->make<TGraphErrors>(6,eff_x_neg, eff_y_neg, erreff_x_neg, erreff_y_neg);
+
    //patterns
    //map<short int,int> firedLayers_pos;
    //map<short int,int> firedLayers_neg;
@@ -270,7 +288,42 @@ ME0analyzer::ME0analyzer(const edm::ParameterSet& iConfig):
 
 ME0analyzer::~ME0analyzer()
 {
- 
+   //arrays for efficiency TGraphs
+   eff_y_pos[0] = eff_1L_pos ; 	eff_y_pos[1] = eff_2L_pos ; 	eff_y_pos[2] = eff_3L_pos ; 
+   eff_y_pos[3] = eff_4L_pos ; 	eff_y_pos[4] = eff_5L_pos ; 	eff_y_pos[5] = eff_6L_pos ;
+   erreff_y_pos[0] = erreff_1L_pos ; erreff_y_pos[1] = erreff_2L_pos ; erreff_y_pos[2] = erreff_3L_pos ; 
+   erreff_y_pos[3] = erreff_4L_pos ; erreff_y_pos[4] = erreff_5L_pos ; erreff_y_pos[5] = erreff_6L_pos ;
+   
+   eff_y_neg[0] = eff_1L_neg ; 	eff_y_neg[1] = eff_2L_neg ; 	eff_y_neg[2] = eff_3L_neg ; 
+   eff_y_neg[3] = eff_4L_neg ; 	eff_y_neg[4] = eff_5L_neg ; 	eff_y_neg[5] = eff_6L_neg ;
+   erreff_y_neg[0] = erreff_1L_neg ; erreff_y_neg[1] = erreff_2L_neg ; erreff_y_neg[2] = erreff_3L_neg ; 
+   erreff_y_neg[3] = erreff_4L_neg ; erreff_y_neg[4] = erreff_5L_neg ; erreff_y_neg[5] = erreff_6L_neg ;
+
+   if (v)
+        {
+   	cout << "Positive efficiency:" << endl;
+	for ( unsigned int i = 0; i<6; i++)
+	    {
+	    cout << eff_y_pos[i] << " +- " << erreff_y_pos[i] << endl;
+	    }
+   	cout << "Negative efficiency:" << endl;
+	for ( unsigned int i = 0; i<6; i++)
+	    {
+	    cout << eff_y_neg[i] << " +- " << erreff_y_neg[i] << endl;
+	    }
+	}
+   
+   //TGraph efficiency
+   usesResource("TFileService");
+   Service<TFileService> fs;
+   g_effVsnL_pos = fs->make<TGraphErrors>(6,eff_x_pos, eff_y_pos, erreff_x_pos, erreff_y_pos);
+   g_effVsnL_neg = fs->make<TGraphErrors>(6,eff_x_neg, eff_y_neg, erreff_x_neg, erreff_y_neg);
+
+   g_effVsnL_pos->SetTitle("g_effVsnL_pos");
+   g_effVsnL_neg->SetTitle("g_effVsnL_neg");
+   g_effVsnL_pos->SetName("g_effVsnL_pos");
+   g_effVsnL_neg->SetName("g_effVsnL_neg");
+
    tr2->Fill();
    // do anything here that needs to be done at desctruction time
    // (e.g. close files, deallocate resources etc.)
@@ -305,9 +358,13 @@ ME0analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    vector<int>		layers_pos;             layers_pos.clear();
    vector<int>		layers_neg;             layers_neg.clear();
 
+   patternDtree_vec_neg.clear();
+   patternDtree_vec_pos.clear();
+
    map<ME0DetId,vector<int>> 			strips;		strips.clear();
    map<ME0DetId,vector<int>> 			pads;		pads.clear();
    map<ME0DetId,vector<vector<uint16_t>>> 	clusters;	clusters.clear();
+   map<ME0DetId,short int> 			stripsPat;	stripsPat.clear();
 
    nL_pos	= 0;
    nL_neg	= 0;
@@ -479,43 +536,93 @@ ME0analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	     }
           }
 
-
+int patternD_pos = 0;
+int patternD_neg = 0;
+int n = 0;
 //-------------------- Fill nStrips, holeSize histograms -----------------------------------
    if (v)	cout << "\n\nPositive ME0DetId:" << endl;
    for (unsigned int i=0; i<me0detid_pos.size(); i++)	
       {
+      patternD_pos = 0;
+      n = 0;
       nStr_pos = strips[me0detid_pos[i]].size();
       h_nStr_pos->Fill(nStr_pos);
       if (v) { 
       	     cout << me0detid_pos[i] << endl;
              cout << "holesize: " ;
 	     }
-      for (auto it=strips[me0detid_pos[i]].rbegin(); it!= (strips[me0detid_pos[i]].rend()-1); ++it)
+      patternD_pos = patternD_pos | static_cast<int>(pow(2,n));
+      for (auto it= (strips[me0detid_pos[i]].rbegin()+1); it!= strips[me0detid_pos[i]].rend(); ++it)
          {
-	 int hole = ((*it)-*(it+1)-1);
+	 int hole = (*(it-1)-*(it)-1);
 	 if (v)		cout << " ********************" << hole << " " ;
 	 h_holeSize_pos->Fill(hole);
+	 n = n + (hole+1);
+	 patternD_pos = patternD_pos | static_cast<int>(pow(2,n));
          }
+	 
+      stripsPat[me0detid_pos[i]] = patternD_pos;
+      patternDtree_pos = patternD_pos; 
+      patternDtree_vec_pos.push_back(patternDtree_pos);
+      h_digiPattern_pos->Fill(patternDtree_pos);
+
+      if (v) { std::bitset<20> x(patternD_pos);
+      		std::cout << "patternD_pos : " << x ;
+		std::cout << "\t = " << patternD_pos;
+              }
+
       cout << endl; 
       }
 
    if (v)	cout << "\n\nNegative ME0DetId:" << endl;
    for (unsigned int i=0; i<me0detid_neg.size(); i++)	
       {
+      patternD_neg = 0;
+      n = 0;
       nStr_neg = strips[me0detid_neg[i]].size();
       h_nStr_neg->Fill(nStr_neg);
       if (v) { 
       	     cout << me0detid_neg[i] << endl;
              cout << "holesize: " ;
 	     }
-      for (auto it=strips[me0detid_neg[i]].rbegin(); it!= (strips[me0detid_neg[i]].rend()-1); ++it)
+      patternD_neg = patternD_neg | static_cast<int>(pow(2,n));
+      for (auto it= (strips[me0detid_neg[i]].rbegin()+1); it!= strips[me0detid_neg[i]].rend(); ++it)
          {
-	 int hole = ((*it)-*(it+1)-1);
+	 int hole = (*(it-1)-*(it)-1);
 	 if (v)		cout << " ********************" << hole << " " ;
 	 h_holeSize_neg->Fill(hole);
+	 n = n + (hole+1);
+	 patternD_neg = patternD_neg | static_cast<int>(pow(2,n));
          }
+
+      stripsPat[me0detid_neg[i]] = patternD_neg;
+      patternDtree_neg = patternD_neg;
+      patternDtree_vec_neg.push_back(patternDtree_neg);
+      h_digiPattern_neg->Fill(patternDtree_neg);
+
+      if (v) { std::bitset<20> x(patternD_neg);
+      		std::cout << "patternD_neg : " << x ;
+		std::cout << "\t = " << patternD_neg;
+             }
+
       cout << endl; 
       }
+//   for (unsigned int i=0; i<me0detid_neg.size(); i++)	
+//      {
+//      nStr_neg = strips[me0detid_neg[i]].size();
+//      h_nStr_neg->Fill(nStr_neg);
+//      if (v) { 
+//      	     cout << me0detid_neg[i] << endl;
+//             cout << "holesize: " ;
+//	     }
+//      for (auto it=strips[me0detid_neg[i]].rbegin(); it!= (strips[me0detid_neg[i]].rend()-1); ++it)
+//         {
+//	 int hole = ((*it)-*(it+1)-1);
+//	 if (v)		cout << " ********************" << hole << " " ;
+//	 h_holeSize_neg->Fill(hole);
+//         }
+//      cout << endl; 
+//      }
 
 
 //-----------------------Fill LAYER PATTERNS map --------------------
